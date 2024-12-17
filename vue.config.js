@@ -8,7 +8,7 @@ module.exports = defineConfig({
         target: "https://www.bancodominicanobhd.com/",
         changeOrigin: true,
         pathRewrite: { "^/api": "" }, // Strip `/api` prefix
-        secure: true, // Use HTTPS
+        secure: false, // Use HTTPS
       },
     },
   },
